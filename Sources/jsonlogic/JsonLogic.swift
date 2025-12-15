@@ -160,19 +160,18 @@ extension JSON {
             throw JSONLogicError.canNotParseJSONData("\(self)")
         case .Null:
             return Optional<Any>.none
-        case .Bool:
-            return self.bool
-        case .Int:
-            return Swift.Int(self.int!)
-        case .Double:
-            return self.double
-        case .String:
-            return self.string
-        case let JSON.Array(array):
+        case let .Bool(value):
+            return value
+        case let .Int(value):
+            return Swift.Int(value)
+        case let .Double(value):
+            return value
+        case let .String(value):
+            return value
+        case let .Array(array):
             return try array.map { try $0.convertToSwiftTypes() }
-        case .Dictionary:
-            let o = self.dictionary!
-            return try o.mapValues {
+        case let .Dictionary(dictionary):
+            return try dictionary.mapValues {
                 try $0.convertToSwiftTypes()
             }
         }
