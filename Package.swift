@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:6.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -6,7 +6,11 @@ import PackageDescription
 let package = Package(
     name: "jsonlogic",
     platforms: [
-        .macOS(.v10_13), .iOS(.v11), .tvOS(.v9), .watchOS(.v4)
+        .macOS(.v15),
+        .iOS(.v18),
+        .tvOS(.v18),
+        .watchOS(.v11),
+        .visionOS(.v2)
     ],
     products: [
         .library(
@@ -20,7 +24,7 @@ let package = Package(
             targets: ["jsonlogic-cli"]),
     ],
     targets: [
-        .target(
+        .executableTarget(
             name: "jsonlogic-cli",
             dependencies: ["jsonlogic"]),
         .target(
@@ -31,10 +35,11 @@ let package = Package(
             dependencies: []),
         .testTarget(
             name: "jsonlogicTests",
-            dependencies: ["jsonlogic"]),
+            dependencies: ["jsonlogic"],
+            resources: [.copy("Resources/tests.json")]),
         .testTarget(
             name: "JSONTests",
             dependencies: ["JSON"])
     ],
-    swiftLanguageVersions: [.v5, .v4_2, .v4]
+    swiftLanguageModes: [.v6]
 )

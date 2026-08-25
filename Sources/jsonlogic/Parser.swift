@@ -148,9 +148,8 @@ struct Comparison: Expression {
                 case JSON.String(_) = array[1] {
                 return JSON(booleanLiteral: operation(array[0], array[1]))
             }
-            let lala = operation(array[0], array[1])
-            let papa = JSON.Bool(lala)
-            return papa
+            let comparisonResult = operation(array[0], array[1])
+            return JSON.Bool(comparisonResult)
         case let .Array(array) where array.count == 3:
             return JSON.Bool(operation(array[0], array[1])
                                      && operation(array[1], array[2]))
@@ -189,9 +188,9 @@ struct LogicalAndOr: Expression {
 
     func evalWithData(_ data: JSON?) throws -> JSON {
         for expression in arg.expressions {
-            let data = try expression.evalWithData(data)
-            if data.truthy() == !isAnd {
-                return data
+            let result = try expression.evalWithData(data)
+            if result.truthy() == !isAnd {
+                return result
             }
         }
 
@@ -203,9 +202,9 @@ struct DoubleNegation: Expression {
     let arg: Expression
 
     func evalWithData(_ data: JSON?) throws -> JSON {
-        let data = try arg.evalWithData(data)
-        guard case let JSON.Array(array) = data else {
-            return JSON.Bool(data.truthy())
+        let result = try arg.evalWithData(data)
+        guard case let JSON.Array(array) = result else {
+            return JSON.Bool(result.truthy())
         }
         if let firstItem = array.first {
             return JSON.Bool(firstItem.truthy())
@@ -360,45 +359,94 @@ struct Var: Expression {
             return defaultArgument
         }
 
-      let variablePath = try evaluateVarPathFromData(data)
-      if let variablePathParts = variablePath?.split(separator: ".").map({String($0)}) {
-          var partialResult: JSON? = data
-          for key in variablePathParts {
-              if partialResult?.type == .array {
-                if let index = Int(key), let maxElement = partialResult?.array?.count,  index < maxElement, index >= 0  {
-                  partialResult = partialResult?[index]
+        let variablePathResult = try evaluateVarPathFromData(data)
+
+        // Handle special cases: null, empty string, empty array all return the entire data
+        switch variablePathResult {
+        case .returnData:
+            return data
+        case .notFound:
+            return defaultArgument
+        case .path(let variablePath):
+            // Empty path returns the entire data
+            if variablePath.isEmpty {
+                return data
+            }
+
+            let variablePathParts = variablePath.split(separator: ".").map { String($0) }
+            var partialResult: JSON? = data
+
+            for key in variablePathParts {
+                if partialResult?.type == .array {
+                    if let index = Int(key),
+                       let maxElement = partialResult?.array?.count,
+                       index < maxElement,
+                       index >= 0 {
+                        partialResult = partialResult?[index]
+                    } else {
+                        partialResult = partialResult?[key]
+                    }
                 } else {
-                  partialResult = partialResult?[key]
+                    partialResult = partialResult?[key]
                 }
-              } else {
-                partialResult = partialResult?[key]
-              }
-          }
+            }
 
-          guard let partialResult = partialResult else {
-              return defaultArgument
-          }
+            guard let partialResult = partialResult else {
+                return defaultArgument
+            }
 
-          if case JSON.Error(_) = partialResult {
-              return defaultArgument
-          }
+            if case JSON.Error(_) = partialResult {
+                return defaultArgument
+            }
 
-          return partialResult
-      }
-
-        return JSON.Null
+            return partialResult
+        }
     }
 
-    func evaluateVarPathFromData(_ data: JSON) throws -> String? {
+    private enum VarPathResult {
+        case returnData       // null, empty array - return entire data
+        case path(String)     // string path or integer index
+        case notFound         // couldn't determine path
+    }
+
+    private func evaluateVarPathFromData(_ data: JSON) throws -> VarPathResult {
         let variablePathAsJSON = try self.expression.evalWithData(data)
 
         switch variablePathAsJSON {
         case let .String(string):
-            return string
+            // Empty string means return entire data
+            if string.isEmpty {
+                return .returnData
+            }
+            return .path(string)
+        case let .Int(index):
+            // Integer index for array access
+            return .path(String(index))
         case let .Array(array):
-            return array.first?.string
+            // Empty array means return entire data
+            if array.isEmpty {
+                return .returnData
+            }
+            // First element should be the path
+            if let first = array.first {
+                switch first {
+                case let .String(string):
+                    if string.isEmpty {
+                        return .returnData
+                    }
+                    return .path(string)
+                case let .Int(index):
+                    return .path(String(index))
+                default:
+                    return .notFound
+                }
+            }
+            return .notFound
+        case .Null:
+            // null means return entire data
+            return .returnData
         default:
-            return nil
+            return .notFound
         }
     }
 }
@@ -492,7 +540,7 @@ struct ArrayMap: Expression {
             array.expressions.count >= 2,
         case let JSON.Array(dataArray) = try array.expressions[0].evalWithData(data)
                 else {
-                return JSON(string: "[]")!
+                return JSON.Array([])
         }
 
         let mapOperation = array.expressions[1]
@@ -665,8 +713,11 @@ class Parser {
             for (key, value) in object {
                 arrayOfExpressions.append(try parseExpressionWithKeyword(key, value: value))
             }
-            //use only the first for now, we should warn or throw error here if array count > 1
-            return arrayOfExpressions.first!
+            // Use only the first expression; empty dictionaries return null
+            guard let firstExpression = arrayOfExpressions.first else {
+                return SingleValueExpression(json: .Null)
+            }
+            return firstExpression
         }
     }
 

@@ -8,7 +8,7 @@
 
 import Foundation
 
-public enum JSON: Equatable {
+public enum JSON: Equatable, Sendable {
     case Null
     case Array([JSON])
     case Dictionary([String: JSON])
@@ -18,7 +18,7 @@ public enum JSON: Equatable {
     case Bool(Bool)
     case Error(JSON2Error)
 
-    public enum ContentType {
+    public enum ContentType: Sendable {
         case error, null, bool, number, string, array, object
     }
 
@@ -41,13 +41,13 @@ public enum JSON: Equatable {
         }
     }
 
-    public enum JSON2Error: Error, Equatable, Hashable {
+    public enum JSON2Error: Error, Equatable, Hashable, Sendable {
         case failedToParse
         case notJSONValue
         case indexOutOfRange(Int)
         case keyNotFound(String)
         case notSubscriptableType(ContentType)
-        case NSError(NSError)
+        case nsError(String)  // Changed from NSError to String for Sendable compliance
     }
 
     public init() {
@@ -84,7 +84,7 @@ public enum JSON: Equatable {
             default:
                 self = .Error(.notJSONValue)
             }
-        case Optional<Any>.none, nil, is NSNull:
+        case is NSNull:
             self = .Null
         case let bool as Bool:
             self = .Bool(bool)
@@ -93,7 +93,7 @@ public enum JSON: Equatable {
         case let double as Swift.Double:
             self = .Double(double)
         default:
-            self = .Error(.NSError(NSError(domain: "Can't convert value \(json) to JSON", code: 1)))
+            self = .Error(.nsError("Can't convert value \(json) to JSON"))
         }
     }
     //swiftlint:enable syntactic_sugar
@@ -102,7 +102,7 @@ public enum JSON: Equatable {
         do {
             self.init(try JSONSerialization.jsonObject(with: data, options: [.allowFragments]))
         } catch let error as NSError {
-            self = .Error(.NSError(error))
+            self = .Error(.nsError(error.localizedDescription))
         } catch {
             self = .Error(.failedToParse)
         }
@@ -507,8 +507,8 @@ extension JSON {
             return !string.isEmpty
         case let .Array(array):
             return !array.isEmpty
-        case .Dictionary(dictionary):
-            return !dictionary!.isEmpty
+        case let .Dictionary(dictionary):
+            return !dictionary.isEmpty
         default:
             return false
         }

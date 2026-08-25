@@ -250,8 +250,8 @@ class JSONTests: XCTestCase {
 
         jsonInts[8] = 0
 
-        //It should pad the index with nil (JSON.Nil)
-        XCTAssertEqual(jsonInts, JSON([3, 2, 1, nil, nil, nil, nil, nil, 0]))
+        // It should pad the index with JSON.Null values
+        XCTAssertEqual(jsonInts, JSON.Array([3, 2, 1, .Null, .Null, .Null, .Null, .Null, 0]))
     }
 
     func testJSONSubscriptGet_GivenJSONDictionary() throws {
@@ -357,8 +357,8 @@ class JSONTests: XCTestCase {
             return nil
         }()
 
-        let parseError = NSError(domain: "Can't convert value \(AClass()) to JSON", code: 1)
-        XCTAssertEqual(error, .NSError(parseError))
+        // Error now stores the message as a String for Sendable compliance
+        XCTAssertEqual(error, .nsError("Can't convert value \(AClass()) to JSON"))
     }
 }
 

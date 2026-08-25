@@ -10,7 +10,7 @@ import XCTest
 //Implementation that allows for throwing errors from error handler block
 func _XCTAssertThrowsError<T>(_ expression: @autoclosure () throws -> T,
                               _ message: @autoclosure () -> String = "",
-                              file: StaticString = #file,
+                              file: StaticString = #filePath,
                               line: UInt = #line,
                               _ errorHandler: (_ error: Swift.Error) throws -> Void) rethrows {
 
